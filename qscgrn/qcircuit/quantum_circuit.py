@@ -163,24 +163,21 @@ class quantum_circuit(qscgrn_model):
 
         self.encoder = RR
     def compute_regulation(self):
-    """
-    Computes the transformation matrix for the `L_k`
-    layer and saves the result into self.regulation
-    """
-    arr = np.zeros((len(self.edges), 2**self.ngenes, 2**self.ngenes))
+        """
+        Computes the transformation matrix for the `L_k`
+        layer and saves the result into self.regulation
+        """
+        arr = np.zeros((len(self.edges), 2**self.ngenes, 2**self.ngenes))
+        for i, edge in enumerate(self.edges):
+            idx = self.indexes[i]
+            control, target = idx[0], idx[1]
+            theta_edge = self.theta[edge]
+            cnot = cnot_gate(control, target)
+            ry = ry_gate(theta_edge)
+            arr[i] = np.dot(cnot, np.dot(ry, cnot))
+        self.regulation = arr
 
-    for i, edge in enumerate(self.edges):
-        idx = self.indexes[i]
-        control, target = idx[0], idx[1]
-        theta_edge = self.theta[edge]
-
-        # Decompose the controlled-Ry gate into CNOT and rotation gates
-        cnot = cnot_gate(control, target)
-        ry = ry_gate(theta_edge)
-
-        arr[i] = np.dot(cnot, np.dot(ry, cnot))
-
-    self.regulation = arr
+ 
 
 
 
