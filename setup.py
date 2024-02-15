@@ -6,14 +6,14 @@ README = (HERE / "README.md").read_text()
 DESCRIPTION = "qscgrn"
 
 PKGS = find_packages()
-PKG_NAME = "AD_Quantum"
+PKG_NAME = "AD_QGRM"
 PKG_VERSION = '1.0.1'
 
 MAINTAINER = 'Neerav Sreekumar'
 MAINTAINER_EMAIL = 'neeravsreekumar@gmail.com'
 
 PYTHON_REQUIRES = ">=3.8"
-URL = "https://github.com/NeeravSreekumar/AD_Quantum"
+URL = "https://github.com/NeeravSreekumar/AD_QGRM"
 
 LICENSE = "MIT"
 CLFS = [
