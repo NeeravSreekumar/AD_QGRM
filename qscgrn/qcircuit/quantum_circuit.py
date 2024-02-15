@@ -4,6 +4,7 @@ from .utils import *
 from .gates import *
 from ..run import *
 from ..utils import info_print
+from qscgrn.qcircuit import cnot_gate, ry_gate
 
 
 __all__ = ['quantum_circuit']
@@ -14,13 +15,13 @@ class quantum_circuit(qscgrn_model):
     Attributes
     ----------
     ngenes : int
-        Number of genes in the Quanutm GRN.
+        Number of genes in the Quantum GRN.
     genes : list
-        Gene list for QuantumGRN modelling.
+        Gene list for Quantum GRN modeling.
     theta : pd.Series
-        Theta values given edges in the QuantumGRN.
+        Theta values given edges in the Quantum GRN.
     edges : list
-        Edges for the QuantumGRN.
+        Edges for the Quantum GRN.
     indexes : list
         Numerical values of the edges for usage in the quantum circuit.
     encoder : np.array
@@ -35,14 +36,14 @@ class quantum_circuit(qscgrn_model):
         The quantum state as input for the quantum circuit model.
     derivatives : pd.DataFrame
         Derivatives of the quantum state in the output register
-        with respect of each parameter.
+        with respect to each parameter.
     drop_zero : bool
-        If True, a normalization step for `p^out` that set the `|0>_n`
-        state to 0, and rescale the rest of the distribution.
+        If True, a normalization step for `p^out` that sets the `|0>_n`
+        state to 0, and rescales the rest of the distribution.
 
     Methods
     -------
-    computer_encoder()
+    compute_encoder()
         Computes the transformation matrix for the `L_enc` into the
         encoder attribute.
     compute_regulation()
@@ -50,7 +51,7 @@ class quantum_circuit(qscgrn_model):
         regulation attribute.
     generate_circuit()
         Compute the transformation matrix for the `L_enc` and `L_k`.
-    tranform_matrix()
+    transform_matrix()
         Compute the transformation matrix for the entire quantum
         circuit.
     output_state()
@@ -61,14 +62,14 @@ class quantum_circuit(qscgrn_model):
         If drop_zero is True, a normalization step is done.
     create_derivatives()
         Creates a pd.DataFrame to store the derivatives of the
-        output state with respect of the parameters.
+        output state with respect to the parameters.
     der_encoder()
-        Computes the derivatives with respect of the parameters
+        Computes the derivatives with respect to the parameters
         in the `L_enc` layer.
     der_regulation()
-        Computes the derivatives with respect of the parameters
+        Computes the derivatives with respect to the parameters
         in the `L_k` layers.
-    compute_derivates()
+    compute_derivatives()
         Computes the derivatives by calling the der_encoder
         and the der_regulation methods.
     """
@@ -78,14 +79,14 @@ class quantum_circuit(qscgrn_model):
         Parameters
         ----------
         genes : list
-            Gene list for QuantumGRN modelling.
+            Gene list for Quantum GRN modeling.
         theta : pd.Series
-            Theta values given edges in the QuantumGRN.
+            Theta values given edges in the Quantum GRN.
         edges : list
-            Edges for the QuantumGRN.
+            Edges for the Quantum GRN.
         drop_zero : bool
-            If True, a normalization step for `p^out` that set the
-            `|0>_n` state to 0, and rescale the rest of the
+            If True, a normalization step for `p^out` that sets the
+            `|0>_n` state to 0, and rescales the rest of the
             distribution.
         """
         super().__init__(genes, theta, edges, drop_zero)
@@ -102,11 +103,9 @@ class quantum_circuit(qscgrn_model):
         self.input[0, 0] = 1.
         self.derivatives = None
 
-
     def __str__(self):
         return ("Quantum circuit for {ngenes} genes for GRN"
-                "modelling".format(ngenes=len(self.genes)))
-
+                " modeling".format(ngenes=len(self.genes)))
 
     def _circuit_is_empty(self):
         """
@@ -117,10 +116,9 @@ class quantum_circuit(qscgrn_model):
             If circuit attribute is a None object.
         """
         if not self.circuit:
-            info_print("The QuantumGRN model is not initialized")
+            info_print("The Quantum GRN model is not initialized")
             raise AttributeError("The quantum circuit for GRN model "
                                  "is not constructed")
-
 
     def _der_is_not_empty(self):
         """
@@ -132,11 +130,10 @@ class quantum_circuit(qscgrn_model):
             If derivatives is not a None object
         """
         if self.derivatives is not None:
-            info_print("Derivatives for the QuantumGRN are already "
-                          "initialized", level="E")
+            info_print("Derivatives for the Quantum GRN are already "
+                        "initialized", level="E")
             raise AttributeError("The quantum circuit for GRN model "
-                                  "has derivatives initialized")
-
+                                 "has derivatives initialized")
 
     def _der_is_empty(self):
         """
@@ -148,12 +145,11 @@ class quantum_circuit(qscgrn_model):
             If derivatives is a None object
         """
         if self.derivatives is None:
-            info_print("Derivatives for the QuantumGRN are not "
-                          "initialized", level="E")
+            info_print("Derivatives for the Quantum GRN are not "
+                        "initialized", level="E")
             raise AttributeError("The quantum circuit for GRN model "
                                  "does not have derivatives "
                                  "initialized")
-
 
     def compute_encoder(self):
         """
@@ -167,163 +163,152 @@ class quantum_circuit(qscgrn_model):
 
         self.encoder = RR
 
-
     def compute_regulation(self):
-       
-    """
-    Computes the transformation matrices of each gate in `L_k`
-    layer and saves the result into self.regulation
-    """
-    arr = np.zeros((len(self.edges), 2**self.ngenes, 2**self.ngenes))
+        """
+        Computes the transformation matrices of each gate in `L_k`
+        layer and saves the result into self.regulation
+        """
+        arr = np.zeros((len(self.edges), 2**self.ngenes, 2**self.ngenes))
 
-    for i, edge in enumerate(self.edges):
-        idx = self.indexes[i]
-        # Decompose C-RY gate into CNOT gates and single-qubit rotations
-        angle = self.theta[edge]
-        control_qubit, target_qubit = idx[0], idx[1]
+        for i, edge in enumerate(self.edges):
+            idx = self.indexes[i]
+            control, target = idx[0], idx[1]
+            theta_edge = self.theta[edge]
 
-        # Apply the decomposition
-        arr[i] = cnot_gate(control_qubit, target_qubit)
-        arr[i] = np.dot(arr[i], ry_gate(angle / 2, target_qubit))
-        arr[i] = np.dot(arr[i], cnot_gate(control_qubit, target_qubit))
-        arr[i] = np.dot(arr[i], ry_gate(-angle / 2, target_qubit))
+            # Decompose the controlled-Ry gate into CNOT and rotation gates
+            cnot = cnot_gate(control, target)
+            ry = ry_gate(theta_edge)
 
-    self.regulation = arr
+            arr[i] = np.dot(cnot, np.dot(ry, cnot))
 
-
+        self.regulation = arr
 
     def generate_circuit(self):
         """
-        Computes the `L_enc` and `L_k` accordingly to parameters
-        such as `theta` and edges.
+        Generates the entire quantum circuit by computing the
+        transformation matrix for the encoder and regulation layers.
         """
-        self.circuit = False
+        self._der_is_empty()
         self.compute_encoder()
         self.compute_regulation()
-        self.circuit = True
-
+        self.circuit = self.transform_matrix()
 
     def transform_matrix(self):
         """
-        Computes the tranformation matrix for the quantum circuit
-        once `L_enc` and `L_k` are computed.
+        Computes the transformation matrix for the entire quantum
+        circuit by multiplying the encoder and regulation matrices.
         Returns
         -------
-        T : ndarray
-            The transformation matrix for the whole quantum circuit.
+        np.ndarray
+            The transformation matrix representing the quantum circuit.
         """
         self._circuit_is_empty()
-        transform_regulation = matrix_multiplication(self.regulation)
-        transform_encoder = tensor_product(self.encoder)
-        return np.dot(transform_regulation, transform_encoder)
 
+        if self.encoder.shape[0] == 1:
+            return self.regulation[0]
+        else:
+            regulation_matrix = np.eye(2**self.ngenes)
+
+            for R in self.regulation:
+                regulation_matrix = np.dot(R, regulation_matrix)
+
+            return regulation_matrix
 
     def output_state(self):
         """
-        Computes the quantum state in the output register of the
-        quantum circuit given an input state.
+        Computes the quantum state in the output register given an
+        input state.
         Returns
         -------
-        `psi_out` : ndarray
-            The quantum state in the output register
+        np.ndarray
+            The quantum state in the output register.
         """
         self._circuit_is_empty()
-        return np.dot(self.transform_matrix(), self.input)
+        return np.dot(self.circuit, self.input)
 
-
-    def output_probabilities(self, drop_zero):
+    def output_probabilities(self, drop_zeros=False):
         """
-        Computes the prbability distribution in the output register
-        of the quantum circuit given an input state.
+        Computes the probability distribution in the output register.
+        If `drop_zeros` is True, a normalization step is performed
+        to set the `|0>_n` state to 0, and rescale the rest of the
+        distribution.
         Parameters
         ----------
-        drop_zero : bool
-            If True, the probability of `|0>_n` is set to 0, and the
-            rest of the distribution is rescaled.
+        drop_zeros : bool, optional
+            If True, a normalization step is performed.
         Returns
         -------
-        `p^out` : ndarray
-            The output probability distribution `p^out` whether it
-            was normalized or not.
+        np.ndarray
+            The probability distribution in the output register.
         """
         self._circuit_is_empty()
-        probabilities = np.power(self.output_state(), 2)
+        p_out = np.abs(self.output_state()) ** 2
 
-        if drop_zero:
-            probabilities[0, 0] = 0.
-            return probabilities / np.sum(probabilities)
+        if drop_zeros:
+            p_out /= np.sum(p_out[1:])
 
-        else:
-            return probabilities
-
+        return p_out
 
     def create_derivatives(self):
         """
-        Creates the derivatives of the quantum state in the output
-        register with respect of each parameter.
+        Creates a DataFrame to store the derivatives of the
+        output state with respect to each parameter.
         """
         self._der_is_not_empty()
-        index = pd.MultiIndex.from_product([self.genes, self.genes],
-                                           names=["control", "target"])
-        self.derivatives = pd.DataFrame(np.zeros((self.ngenes**2,
-                                                  2**self.ngenes)),
-                                        index=index)
-
+        self.derivatives = pd.DataFrame(columns=self.theta.index,
+                                         index=np.arange(2**self.ngenes))
+        self.derivatives.iloc[:, :] = 0
 
     def der_encoder(self):
         """
-        Computes the derivatives with respect of the parameters
-        in the `L_enc` layer and save it in the derivative
-        attribute.
+        Computes the derivatives with respect to the parameters
+        in the `L_enc` layer.
         """
-        self._circuit_is_empty()
         self._der_is_empty()
+        der_R = np.zeros((len(self.genes), 2, 2))
 
         for idx, gene in enumerate(self.genes):
-            der_matrix = np.array(self.encoder)
-            gate = der_ry_gate(self.theta[(gene, gene)])
-            der_matrix[idx] = gate
+            der_R[idx] = der_ry_gate(self.theta[(gene, gene)])
 
-            transform_regulation = matrix_multiplication(self.regulation)
-            transform_encoder = tensor_product(der_matrix)
-            transform = np.dot(transform_regulation, transform_encoder)
-
-            derivative = np.dot(transform, self.input)
-            self.derivatives.loc[(gene, gene)] = \
-                    derivative.reshape(2**self.ngenes,)
-
+        self.der_encoder = der_R
 
     def der_regulation(self):
         """
-        Computes the derivatives with respect of the parameters
-        in the `L_k` layers and save it in the derivative
-        attribute.
+        Computes the derivatives with respect to the parameters
+        in the `L_k` layers.
         """
-        self._circuit_is_empty()
         self._der_is_empty()
+        der_R = np.zeros((len(self.edges), 2**self.ngenes, 2**self.ngenes))
 
-        for idx, edge in enumerate(self.edges):
-            index = self.indexes[idx]
-            der_matrix = np.array(self.regulation)
-            gate = der_cry_gate(self.theta[edge], self.ngenes,
-                                index[0], index[1])
-            der_matrix[idx] = gate
+        for i, edge in enumerate(self.edges):
+            idx = self.indexes[i]
+            control, target = idx[0], idx[1]
+            theta_edge = self.theta[edge]
 
-            transform_regulation = matrix_multiplication(der_matrix)
-            transform_encoder = tensor_product(self.encoder)
-            transform = np.dot(transform_regulation, transform_encoder)
+            cnot = cnot_gate(control, target)
+            der_ry = der_ry_gate(theta_edge)
 
-            derivative = np.dot(transform, self.input)
-            self.derivatives.loc[edge] = \
-                derivative.reshape(2**self.ngenes,)
+            der_R[i] = np.dot(cnot, np.dot(der_ry, cnot))
 
+        self.der_regulation = der_R
 
     def compute_derivatives(self):
         """
-        Computes the derivatives by calling the der_encoder and
-        der_regulation methods.
+        Computes the derivatives by calling the der_encoder
+        and the der_regulation methods.
         """
-        self.derivatives = None
-        self.create_derivatives()
+        self._der_is_empty()
         self.der_encoder()
         self.der_regulation()
+
+        for i, gene in enumerate(self.genes):
+            for j, edge in enumerate(self.edges):
+                self.derivatives[gene] += np.dot(
+                    np.dot(self.regulation[j], self.der_encoder[i]),
+                    self.input.reshape(-1))
+
+        for i, edge in enumerate(self.edges):
+            self.derivatives[edge] += np.dot(
+                np.dot(self.der_regulation[i], self.encoder),
+                self.input.reshape(-1))
+
